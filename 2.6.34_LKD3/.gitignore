@@ -76,3 +76,6 @@ GTAGS
 *.orig
 *~
 \#*#
+
+# person
+arch/x86/boot/compressed/vmlinux
