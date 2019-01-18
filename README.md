@@ -8,6 +8,9 @@ ULK3
 Understanding the Linux Kernel 3rd
 深入理解Linux内核
 
+## 2.6.23
+Linux内核修炼之道
+
 ## 2.6.24
 PLKA
 Professional Linux Kernel Architecture
