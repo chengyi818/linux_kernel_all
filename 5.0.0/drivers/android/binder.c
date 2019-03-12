@@ -256,6 +256,7 @@ static struct binder_transaction_log_entry *binder_transaction_log_add(
  * @type:              type of work to be performed
  *
  * There are separate work lists for proc, thread, and node (async).
+ * 描述了待处理的工作项类型
  */
 struct binder_work {
 	struct list_head entry;
@@ -333,8 +334,10 @@ struct binder_error {
  *                        (protected by @proc->inner_lock)
  *
  * Bookkeeping structure for binder nodes.
+ * 描述Binder实体对象,即用户空间注册的Service
  */
 struct binder_node {
+    // 身份标识
 	int debug_id;
 	spinlock_t lock;
 	struct binder_work work;
@@ -342,13 +345,17 @@ struct binder_node {
 		struct rb_node rb_node;
 		struct hlist_node dead_node;
 	};
+    // 宿主进程
 	struct binder_proc *proc;
+    // 引用Service的Client binder_ref
 	struct hlist_head refs;
 	int internal_strong_refs;
 	int local_weak_refs;
 	int local_strong_refs;
 	int tmp_refs;
+    // 用户空间Service内部的引用计数
 	binder_uintptr_t ptr;
+    // 用户空间Service地址
 	binder_uintptr_t cookie;
 	struct {
 		/*
@@ -364,10 +371,14 @@ struct binder_node {
 		/*
 		 * invariant after initialization
 		 */
+        // 是否可以接受文件描述符
 		u8 accept_fds:1;
+        // 事务处理线程 最小优先级
 		u8 min_priority;
 	};
+    // 是否正在处理异步事务
 	bool has_async_transaction;
+    // 异步事务todo队列
 	struct list_head async_todo;
 };
 
@@ -376,8 +387,11 @@ struct binder_ref_death {
 	 * @work: worklist element for death notifications
 	 *        (protected by inner_lock of the proc that
 	 *        this ref belongs to)
+     * Service死亡通知
 	 */
+    // 死亡通知类型
 	struct binder_work work;
+    // Client接收死亡通知的对象地址
 	binder_uintptr_t cookie;
 };
 
@@ -395,6 +409,7 @@ struct binder_ref_death {
  */
 struct binder_ref_data {
 	int debug_id;
+    // client进程空间 描述符
 	uint32_t desc;
 	int strong;
 	int weak;
@@ -416,6 +431,7 @@ struct binder_ref_data {
  *
  * Structure to track references from procA to target node (on procB). This
  * structure is unsafe to access without holding @proc->outer_lock.
+ * Binder引用对象
  */
 struct binder_ref {
 	/* Lookups needed: */
@@ -423,11 +439,16 @@ struct binder_ref {
 	/*   desc + proc => ref (transaction, inc/dec ref) */
 	/*   node => refs + procs (proc exit) */
 	struct binder_ref_data data;
+    // 用于binder_proc管理binder_ref
 	struct rb_node rb_node_desc;
+    // 用于binder_proc管理binder_ref
 	struct rb_node rb_node_node;
 	struct hlist_node node_entry;
+    // binder_ref的宿主进程
 	struct binder_proc *proc;
+    // binder_ref引用的binder node
 	struct binder_node *node;
+    // Service组件死亡接收通知
 	struct binder_ref_death *death;
 };
 
@@ -493,7 +514,9 @@ struct binder_proc {
 	struct hlist_node proc_node;
 	struct rb_root threads;
 	struct rb_root nodes;
+    // 根据desc管理binder_ref
 	struct rb_root refs_by_desc;
+    // 根据binder_ref对应的binder_node管理binder_ref
 	struct rb_root refs_by_node;
 	struct list_head waiting_threads;
 	int pid;
