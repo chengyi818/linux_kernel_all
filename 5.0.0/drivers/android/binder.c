@@ -509,31 +509,48 @@ enum binder_deferred_state {
  *                        Lock order: 1) outer, 2) node, 3) inner
  *
  * Bookkeeping structure for binder processes
+ * 描述使用binder进程间通信的进程
  */
 struct binder_proc {
+    // binder_proc全局管理节点
 	struct hlist_node proc_node;
+    // 宿主进程的binder线程池
 	struct rb_root threads;
+    // binder_node->ptr管理树
 	struct rb_root nodes;
-    // 根据desc管理binder_ref
+    // 根据binder_ref的desc管理binder_ref
 	struct rb_root refs_by_desc;
     // 根据binder_ref对应的binder_node管理binder_ref
 	struct rb_root refs_by_node;
+    // 空闲的等待线程
 	struct list_head waiting_threads;
+    // 关联的进程pid
 	int pid;
+    // 关联的进程 task_struct
 	struct task_struct *tsk;
+    // 延迟工作hash表
 	struct hlist_node deferred_work_node;
+    // 延迟工作类型
 	int deferred_work;
 	bool is_dead;
 
+    // 待处理工作项
 	struct list_head todo;
+    // 统计数据
 	struct binder_stats stats;
+    // Service组件死亡通知
 	struct list_head delivered_death;
+    // 驱动主动请求注册线程总数
 	int max_threads;
+    // 驱动已发出请求注册线程数
 	int requested_threads;
+    // 驱动已请求注册线程数
 	int requested_threads_started;
 	int tmp_ref;
+    // 进程默认优先级
 	long default_priority;
 	struct dentry *debugfs_entry;
+    // 管理分配的内存
 	struct binder_alloc alloc;
 	struct binder_context *context;
 	spinlock_t inner_lock;

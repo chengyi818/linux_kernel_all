@@ -42,6 +42,7 @@ struct binder_transaction;
  * @data:               pointer to base of buffer space
  *
  * Bookkeeping structure for binder transaction buffers
+ * 描述一个内核缓冲区,进程间数据传输
  */
 struct binder_buffer {
 	struct list_head entry; /* free and allocated entries by address */
@@ -52,12 +53,15 @@ struct binder_buffer {
 	unsigned async_transaction:1;
 	unsigned debug_id:29;
 
+    // buffer关联的binder_transaction
 	struct binder_transaction *transaction;
 
+    // buffer关联的binder_node
 	struct binder_node *target_node;
 	size_t data_size;
 	size_t offsets_size;
 	size_t extra_buffers_size;
+    // 普通数据 + binder_ref
 	void *data;
 };
 
@@ -100,16 +104,26 @@ struct binder_lru_page {
  */
 struct binder_alloc {
 	struct mutex mutex;
+    // 用户空间地址
 	struct vm_area_struct *vma;
 	struct mm_struct *vma_vm_mm;
+    // 内核空间地址
 	void *buffer;
+    // 内核空间地址和用户空间地址的固定差值
 	ptrdiff_t user_buffer_offset;
+    // 将大的内存划分成若干binder_buffer,从小到大排列
 	struct list_head buffers;
+    // 空间buffers
 	struct rb_root free_buffers;
+    // 已分配buffers
 	struct rb_root allocated_buffers;
+    // 异步事务内核缓冲区大小
 	size_t free_async_space;
+    // 内核缓冲区对应物理页面
 	struct binder_lru_page *pages;
+    // 内核缓冲区大小
 	size_t buffer_size;
+    // 空闲内核缓冲区的大小
 	uint32_t buffer_free;
 	int pid;
 	size_t pages_high;
@@ -184,4 +198,3 @@ binder_alloc_get_user_buffer_offset(struct binder_alloc *alloc)
 }
 
 #endif /* _LINUX_BINDER_ALLOC_H */
-
