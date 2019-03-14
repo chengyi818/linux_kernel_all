@@ -603,17 +603,25 @@ enum {
  * Bookkeeping structure for binder threads.
  */
 struct binder_thread {
+    // 宿主进程
 	struct binder_proc *proc;
+    // 宿主进程binder_proc->threads节点
 	struct rb_node rb_node;
 	struct list_head waiting_thread_node;
+    // 线程id
 	int pid;
+    // 线程状态
 	int looper;              /* only modified by this thread */
 	bool looper_need_return; /* can be written by other thread */
+    // 待处理事务
 	struct binder_transaction *transaction_stack;
+    // 待处理工作项
 	struct list_head todo;
 	bool process_todo;
+    // 错误代码
 	struct binder_error return_error;
 	struct binder_error reply_error;
+    // 等待队列
 	wait_queue_head_t wait;
 	struct binder_stats stats;
 	atomic_t tmp_ref;
@@ -640,9 +648,12 @@ struct binder_txn_fd_fixup {
 struct binder_transaction {
 	int debug_id;
 	struct binder_work work;
+    // 发起事务的线程
 	struct binder_thread *from;
 	struct binder_transaction *from_parent;
+    // 负责事务的进程
 	struct binder_proc *to_proc;
+    // 负责事务的线程
 	struct binder_thread *to_thread;
 	struct binder_transaction *to_parent;
 	unsigned need_reply:1;
@@ -651,8 +662,10 @@ struct binder_transaction {
 	struct binder_buffer *buffer;
 	unsigned int	code;
 	unsigned int	flags;
+    // 源线程优先级
 	long	priority;
 	long	saved_priority;
+    // 源用户id
 	kuid_t	sender_euid;
 	struct list_head fd_fixups;
 	/**
