@@ -61,7 +61,7 @@ struct binder_buffer {
 	size_t data_size;
 	size_t offsets_size;
 	size_t extra_buffers_size;
-    // 普通数据 + binder_ref
+    // 普通数据 + binder_ref/binder_node
 	void *data;
 };
 

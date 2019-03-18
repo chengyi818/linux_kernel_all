@@ -704,6 +704,7 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
 		goto err_already_mapped;
 	}
 
+    // 分配内核虚拟地址
 	area = get_vm_area(vma->vm_end - vma->vm_start, VM_ALLOC);
 	if (area == NULL) {
 		ret = -ENOMEM;
@@ -711,6 +712,7 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
 		goto err_get_vm_area_failed;
 	}
 	alloc->buffer = area->addr;
+    // 用户空间和内核空间地址固定差值
 	alloc->user_buffer_offset =
 		vma->vm_start - (uintptr_t)alloc->buffer;
 	mutex_unlock(&binder_alloc_mmap_lock);
@@ -726,6 +728,7 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
 		}
 	}
 #endif
+    // 分配物理页面管理结构
 	alloc->pages = kcalloc((vma->vm_end - vma->vm_start) / PAGE_SIZE,
 			       sizeof(alloc->pages[0]),
 			       GFP_KERNEL);

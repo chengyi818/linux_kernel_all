@@ -28,6 +28,7 @@
 	((((c1)<<24)) | (((c2)<<16)) | (((c3)<<8)) | (c4))
 #define B_TYPE_LARGE 0x85
 
+// flat_binder_object type的取值枚举
 enum {
 	BINDER_TYPE_BINDER	= B_PACK_CHARS('s', 'b', '*', B_TYPE_LARGE),
 	BINDER_TYPE_WEAK_BINDER	= B_PACK_CHARS('w', 'b', '*', B_TYPE_LARGE),
@@ -65,9 +66,11 @@ struct binder_object_header {
  * contains offsets into the data where these structures occur.  The Binder
  * driver takes care of re-writing the structure type and data as it moves
  * between processes.
+ * 1. 在binder通信过程中传递的binder对象
+ * 2. 可能是binder_node也可能是binder_ref
  */
 struct flat_binder_object {
-	struct binder_object_header	hdr;
+	struct binder_object_header	hdr;  // type
 	__u32				flags;
 
 	/* 8 bytes of data. */
@@ -243,6 +246,9 @@ enum transaction_flags {
 	TF_ACCEPT_FDS	= 0x10,	/* allow replies with file descriptors */
 };
 
+/*
+ 1. IOCTL binder_write_read传输的内容
+ */
 struct binder_transaction_data {
 	/* The first two are only used for bcTRANSACTION and brTRANSACTION,
 	 * identifying the target and contents of the transaction.

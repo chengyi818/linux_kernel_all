@@ -5010,6 +5010,12 @@ static const struct vm_operations_struct binder_vm_ops = {
 	.fault = binder_vm_fault,
 };
 
+/*
+  1. 在用户空间映射/dev/binder文件描述符
+  2. 设置binder_proc->binder_alloc
+  3. 分配物理内存页
+  4. 设置vma和mm
+ */
 static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	int ret;
@@ -5019,6 +5025,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	if (proc->tsk != current->group_leader)
 		return -EINVAL;
 
+    // 最多映射4M
 	if ((vma->vm_end - vma->vm_start) > SZ_4M)
 		vma->vm_end = vma->vm_start + SZ_4M;
 
@@ -5028,11 +5035,13 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 		     (vma->vm_end - vma->vm_start) / SZ_1K, vma->vm_flags,
 		     (unsigned long)pgprot_val(vma->vm_page_prot));
 
+    // binder驱动为用户空间分配的内存只能读不能写
 	if (vma->vm_flags & FORBIDDEN_MMAP_FLAGS) {
 		ret = -EPERM;
 		failure_string = "bad vm_flags";
 		goto err_bad_arg;
 	}
+    // 禁止拷贝
 	vma->vm_flags |= VM_DONTCOPY | VM_MIXEDMAP;
 	vma->vm_flags &= ~VM_MAYWRITE;
 
@@ -5050,6 +5059,10 @@ err_bad_arg:
 	return ret;
 }
 
+/*
+  1. 创建和初始化binder_proc
+  2. 将binder_proc* 绑到file->private_data
+ */
 static int binder_open(struct inode *nodp, struct file *filp)
 {
 	struct binder_proc *proc;
@@ -5083,6 +5096,7 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	filp->private_data = proc;
 
 	mutex_lock(&binder_procs_lock);
+    // 将 新binder_proc 加入全局管理hash表
 	hlist_add_head(&proc->proc_node, &binder_procs);
 	mutex_unlock(&binder_procs_lock);
 
