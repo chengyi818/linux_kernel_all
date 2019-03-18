@@ -166,9 +166,11 @@ struct binder_fd_array_object {
  */
 
 struct binder_write_read {
+    // 用户空间-->驱动
 	binder_size_t		write_size;	/* bytes to write */
 	binder_size_t		write_consumed;	/* bytes consumed by driver */
 	binder_uintptr_t	write_buffer;
+    // 驱动-->用户空间
 	binder_size_t		read_size;	/* bytes to read */
 	binder_size_t		read_consumed;	/* bytes consumed by driver */
 	binder_uintptr_t	read_buffer;
@@ -281,6 +283,13 @@ struct binder_transaction_data_sg {
 	binder_size_t buffers_size;
 };
 
+/*
+ 1. 描述binder_node
+   ptr = binder_node.ptr
+   cookie = binder_node.cookie
+ 2. 描述binder_ref_death
+   cookie = binder_ref->death.cookie
+*/
 struct binder_ptr_cookie {
 	binder_uintptr_t ptr;
 	binder_uintptr_t cookie;
@@ -302,6 +311,8 @@ struct binder_pri_ptr_cookie {
 	binder_uintptr_t cookie;
 };
 
+
+// 驱动-->用户空间 返回协议代码
 enum binder_driver_return_protocol {
 	BR_ERROR = _IOR('r', 0, __s32),
 	/*
@@ -390,6 +401,7 @@ enum binder_driver_return_protocol {
 	 */
 };
 
+// 用户空间-->驱动 命令协议代码
 enum binder_driver_command_protocol {
 	BC_TRANSACTION = _IOW('c', 0, struct binder_transaction_data),
 	BC_REPLY = _IOW('c', 1, struct binder_transaction_data),
@@ -474,4 +486,3 @@ enum binder_driver_command_protocol {
 };
 
 #endif /* _UAPI_LINUX_BINDER_H */
-

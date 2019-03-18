@@ -659,8 +659,11 @@ struct binder_transaction {
 	unsigned need_reply:1;
 	/* unsigned is_dead:1; */	/* not used at the moment */
 
+    // 该事务分配的内核缓冲区
 	struct binder_buffer *buffer;
+    // 进程间通信数据
 	unsigned int	code;
+    // 进程间通信数据
 	unsigned int	flags;
     // 源线程优先级
 	long	priority;
