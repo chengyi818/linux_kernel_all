@@ -185,6 +185,14 @@ struct binder_buffer *binder_alloc_prepare_to_free(struct binder_alloc *alloc,
 	return buffer;
 }
 
+/**
+ * binder_update_page_range() - 为指定虚拟地址空间分配或释放物理页面
+ * @alloc: 指定的binder_alloc
+ * @allocate: 1分配页面, 0释放页面
+ * @start: 起始地址
+ * @end: 结束地址
+ */
+
 static int binder_update_page_range(struct binder_alloc *alloc, int allocate,
 				    void *start, void *end)
 {

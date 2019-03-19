@@ -5013,7 +5013,7 @@ static const struct vm_operations_struct binder_vm_ops = {
 /*
   1. 在用户空间映射/dev/binder文件描述符
   2. 设置binder_proc->binder_alloc
-  3. 分配物理内存页
+  3. 从slab分配管理结构内存
   4. 设置vma和mm
  */
 static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
