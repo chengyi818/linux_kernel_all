@@ -72,6 +72,10 @@ static size_t binder_alloc_buffer_size(struct binder_alloc *alloc,
 	return (u8 *)binder_buffer_next(buffer)->data - (u8 *)buffer->data;
 }
 
+/**
+ *  binder_insert_free_buffer() - 将一个空闲的binder_buffer管理结构缓存到alloc->free_buffers
+ */
+
 static void binder_insert_free_buffer(struct binder_alloc *alloc,
 				      struct binder_buffer *new_buffer)
 {
@@ -189,8 +193,8 @@ struct binder_buffer *binder_alloc_prepare_to_free(struct binder_alloc *alloc,
  * binder_update_page_range() - 为指定虚拟地址空间分配或释放物理页面
  * @alloc: 指定的binder_alloc
  * @allocate: 1分配页面, 0释放页面
- * @start: 起始地址
- * @end: 结束地址
+ * @start: 内核起始地址
+ * @end: 内核结束地址
  */
 
 static int binder_update_page_range(struct binder_alloc *alloc, int allocate,
@@ -260,6 +264,7 @@ static int binder_update_page_range(struct binder_alloc *alloc, int allocate,
 			goto err_page_ptr_cleared;
 
 		trace_binder_alloc_page_start(alloc, index);
+        // 在高端内存区实际分配物理页面
 		page->page_ptr = alloc_page(GFP_KERNEL |
 					    __GFP_HIGHMEM |
 					    __GFP_ZERO);
@@ -271,6 +276,7 @@ static int binder_update_page_range(struct binder_alloc *alloc, int allocate,
 		page->alloc = alloc;
 		INIT_LIST_HEAD(&page->lru);
 
+        // 物理内存地址和内核虚拟地址间建立映射关系
 		ret = map_kernel_range_noflush((unsigned long)page_addr,
 					       PAGE_SIZE, PAGE_KERNEL,
 					       &page->page_ptr);
@@ -281,6 +287,7 @@ static int binder_update_page_range(struct binder_alloc *alloc, int allocate,
 			       alloc->pid, page_addr);
 			goto err_map_kernel_failed;
 		}
+        // 物理内存地址和用户空间虚拟地址间建立映射关系
 		user_page_addr =
 			(uintptr_t)page_addr + alloc->user_buffer_offset;
 		ret = vm_insert_page(vma, user_page_addr, page[0].page_ptr);
@@ -364,6 +371,14 @@ static inline struct vm_area_struct *binder_alloc_get_vma(
 	}
 	return vma;
 }
+
+/**
+ * binder_alloc_new_buf_locked - 分配binder_buffer
+ * @alloc: 目标进程binder_alloc
+ * @data_size: 数据缓冲区大小
+ * @offsets_size: 偏移缓冲区大小
+ * @is_async: 是否是异步事务
+ */
 
 static struct binder_buffer *binder_alloc_new_buf_locked(
 				struct binder_alloc *alloc,
@@ -482,6 +497,7 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 		(void *)PAGE_ALIGN((uintptr_t)buffer->data + size);
 	if (end_page_addr > has_page_addr)
 		end_page_addr = has_page_addr;
+    // 为新的binder_buffer分配物理页面
 	ret = binder_update_page_range(alloc, 1,
 	    (void *)PAGE_ALIGN((uintptr_t)buffer->data), end_page_addr);
 	if (ret)
