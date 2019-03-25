@@ -412,6 +412,7 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 				alloc->pid, data_size, offsets_size);
 		return ERR_PTR(-EINVAL);
 	}
+    // size即binder_buffer实际需要管理的内存大小
 	size = data_offsets_size + ALIGN(extra_buffers_size, sizeof(void *));
 	if (size < data_offsets_size || size < extra_buffers_size) {
 		binder_alloc_debug(BINDER_DEBUG_BUFFER_ALLOC,
@@ -419,6 +420,7 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 				alloc->pid, extra_buffers_size);
 		return ERR_PTR(-EINVAL);
 	}
+    // 如果用于异步事务,则需要检查异步内核缓冲区是否够用
 	if (is_async &&
 	    alloc->free_async_space < size + sizeof(struct binder_buffer)) {
 		binder_alloc_debug(BINDER_DEBUG_BUFFER_ALLOC,
