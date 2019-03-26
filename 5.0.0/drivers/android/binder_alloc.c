@@ -109,6 +109,9 @@ static void binder_insert_free_buffer(struct binder_alloc *alloc,
 	rb_insert_color(&new_buffer->rb_node, &alloc->free_buffers);
 }
 
+/**
+ * 在alloc->allocated_buffers中,插入new_buffer
+ */
 static void binder_insert_allocated_buffer_locked(
 		struct binder_alloc *alloc, struct binder_buffer *new_buffer)
 {
@@ -133,6 +136,13 @@ static void binder_insert_allocated_buffer_locked(
 	rb_link_node(&new_buffer->rb_node, parent, p);
 	rb_insert_color(&new_buffer->rb_node, &alloc->allocated_buffers);
 }
+/**
+ * binder_alloc_prepare_to_free_locked() - 根据用户空间地址查找对应binder_buffer
+ * @alloc: binder_alloc for this proc
+ * @user_ptr: the binder_buffer->data userspace address
+ *
+ * user_ptr必须恰好指向binder_buffer->data
+ */
 
 static struct binder_buffer *binder_alloc_prepare_to_free_locked(
 		struct binder_alloc *alloc,
@@ -175,6 +185,7 @@ static struct binder_buffer *binder_alloc_prepare_to_free_locked(
  * Validate userspace pointer to buffer data and return buffer corresponding to
  * that user pointer. Search the rb tree for buffer that matches user data
  * pointer.
+ * 根据用户空间地址查找对应binder_buffer
  *
  * Return:	Pointer to buffer or NULL
  */
@@ -430,8 +441,10 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 	}
 
 	/* Pad 0-size buffers so they get assigned unique addresses */
+    // size表示经过计算,最终需要的binder_buffer数据区大小
 	size = max(size, sizeof(void *));
 
+    // 寻找最合适的binder_buffer
 	while (n) {
 		buffer = rb_entry(n, struct binder_buffer, rb_node);
 		BUG_ON(!buffer->free);
@@ -447,6 +460,7 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 			break;
 		}
 	}
+    // 在现有free binder_buffer中,没有找到合适的binder_buffer
 	if (best_fit == NULL) {
 		size_t allocated_buffers = 0;
 		size_t largest_alloc_size = 0;
@@ -455,6 +469,8 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 		size_t largest_free_size = 0;
 		size_t total_free_size = 0;
 
+        // 遍历了已分配的binder_buffers
+        // 将统计信息保存到allocated_buffers, total_alloc_size, largest_alloc_size
 		for (n = rb_first(&alloc->allocated_buffers); n != NULL;
 		     n = rb_next(n)) {
 			buffer = rb_entry(n, struct binder_buffer, rb_node);
@@ -464,6 +480,8 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 			if (buffer_size > largest_alloc_size)
 				largest_alloc_size = buffer_size;
 		}
+        // 遍历free binder_buffers
+        // 将统计信息保存到free_buffers, total_free_size, largest_free_size
 		for (n = rb_first(&alloc->free_buffers); n != NULL;
 		     n = rb_next(n)) {
 			buffer = rb_entry(n, struct binder_buffer, rb_node);
@@ -483,6 +501,7 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 				   free_buffers, largest_free_size);
 		return ERR_PTR(-ENOSPC);
 	}
+    // 没有找到恰好合适的binder_buffer,但是找到了稍大一点的
 	if (n == NULL) {
 		buffer = rb_entry(best_fit, struct binder_buffer, rb_node);
 		buffer_size = binder_alloc_buffer_size(alloc, buffer);
@@ -492,19 +511,23 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 		     "%d: binder_alloc_buf size %zd got buffer %pK size %zd\n",
 		      alloc->pid, size, buffer, buffer_size);
 
+    // 刚找到的binder_buffer结束地址的起始页面地址
 	has_page_addr =
 		(void *)(((uintptr_t)buffer->data + buffer_size) & PAGE_MASK);
 	WARN_ON(n && buffer_size != size);
+    // 对齐binder_buffer的结束地址
 	end_page_addr =
 		(void *)PAGE_ALIGN((uintptr_t)buffer->data + size);
 	if (end_page_addr > has_page_addr)
 		end_page_addr = has_page_addr;
+
     // 为新的binder_buffer分配物理页面
 	ret = binder_update_page_range(alloc, 1,
 	    (void *)PAGE_ALIGN((uintptr_t)buffer->data), end_page_addr);
 	if (ret)
 		return ERR_PTR(ret);
 
+    // 如果分配的binder_alloc大于实际需要的,则需要将剩余的binder_alloc重新加入alloc->free_buffers
 	if (buffer_size != size) {
 		struct binder_buffer *new_buffer;
 
@@ -520,13 +543,16 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 		binder_insert_free_buffer(alloc, new_buffer);
 	}
 
+    // 将选中的binder_buffer,从free binder_buffers删除
 	rb_erase(best_fit, &alloc->free_buffers);
 	buffer->free = 0;
 	buffer->allow_user_free = 0;
+    // 将选中的buffer加入alloc->allocated_buffers
 	binder_insert_allocated_buffer_locked(alloc, buffer);
 	binder_alloc_debug(BINDER_DEBUG_BUFFER_ALLOC,
 		     "%d: binder_alloc_buf size %zd got %pK\n",
 		      alloc->pid, size, buffer);
+    // 对binder_buffer赋值,初始化
 	buffer->data_size = data_size;
 	buffer->offsets_size = offsets_size;
 	buffer->async_transaction = is_async;
@@ -586,6 +612,9 @@ static void *prev_buffer_end_page(struct binder_buffer *buffer)
 	return (void *)(((uintptr_t)(buffer->data) - 1) & PAGE_MASK);
 }
 
+/**
+ * binder_delete_free_buffer - 从binder_alloc中,释放binder_buffer结构体
+ */
 static void binder_delete_free_buffer(struct binder_alloc *alloc,
 				      struct binder_buffer *buffer)
 {
@@ -594,6 +623,8 @@ static void binder_delete_free_buffer(struct binder_alloc *alloc,
 	BUG_ON(alloc->buffers.next == &buffer->entry);
 	prev = binder_buffer_prev(buffer);
 	BUG_ON(!prev->free);
+
+    // 前一个binder_buffer->data和buffer->data在同一页面
 	if (prev_buffer_end_page(prev) == buffer_start_page(buffer)) {
 		to_free = false;
 		binder_alloc_debug(BINDER_DEBUG_BUFFER_ALLOC,
@@ -601,6 +632,7 @@ static void binder_delete_free_buffer(struct binder_alloc *alloc,
 				   alloc->pid, buffer->data, prev->data);
 	}
 
+    // 后一个binder_buffer->data和buffer->data在同一页面
 	if (!list_is_last(&buffer->entry, &alloc->buffers)) {
 		next = binder_buffer_next(buffer);
 		if (buffer_start_page(next) == buffer_start_page(buffer)) {
@@ -613,6 +645,7 @@ static void binder_delete_free_buffer(struct binder_alloc *alloc,
 		}
 	}
 
+    // buffer->data是对齐的
 	if (PAGE_ALIGNED(buffer->data)) {
 		binder_alloc_debug(BINDER_DEBUG_BUFFER_ALLOC,
 				   "%d: merge free, buffer start %pK is page aligned\n",
@@ -628,17 +661,24 @@ static void binder_delete_free_buffer(struct binder_alloc *alloc,
 		binder_update_page_range(alloc, 0, buffer_start_page(buffer),
 					 buffer_start_page(buffer) + PAGE_SIZE);
 	}
+    // 将binder_buffer从链表中摘除并释放
 	list_del(&buffer->entry);
 	kfree(buffer);
 }
+
+/**
+ * binder_free_buf_locked - 从相应的binder_alloc中,释放binder_buffer
+ */
 
 static void binder_free_buf_locked(struct binder_alloc *alloc,
 				   struct binder_buffer *buffer)
 {
 	size_t size, buffer_size;
 
+    // binder_buffer真实占用的大小
 	buffer_size = binder_alloc_buffer_size(alloc, buffer);
 
+    // binder_buffer实际使用的大小
 	size = ALIGN(buffer->data_size, sizeof(void *)) +
 		ALIGN(buffer->offsets_size, sizeof(void *)) +
 		ALIGN(buffer->extra_buffers_size, sizeof(void *));
@@ -653,6 +693,7 @@ static void binder_free_buf_locked(struct binder_alloc *alloc,
 	BUG_ON(buffer->data < alloc->buffer);
 	BUG_ON(buffer->data > alloc->buffer + alloc->buffer_size);
 
+    // 异步事务
 	if (buffer->async_transaction) {
 		alloc->free_async_space += size + sizeof(struct binder_buffer);
 
@@ -661,12 +702,15 @@ static void binder_free_buf_locked(struct binder_alloc *alloc,
 			      alloc->pid, size, alloc->free_async_space);
 	}
 
+    // 释放binder_alloc对应的物理内存
 	binder_update_page_range(alloc, 0,
 		(void *)PAGE_ALIGN((uintptr_t)buffer->data),
 		(void *)(((uintptr_t)buffer->data + buffer_size) & PAGE_MASK));
 
+    // 将binder_buffer从alloc->allocated_buffers中移除
 	rb_erase(&buffer->rb_node, &alloc->allocated_buffers);
 	buffer->free = 1;
+    // 如果下一个binder_buffer是free的,则合并两个binder_buffer
 	if (!list_is_last(&buffer->entry, &alloc->buffers)) {
 		struct binder_buffer *next = binder_buffer_next(buffer);
 
@@ -675,6 +719,7 @@ static void binder_free_buf_locked(struct binder_alloc *alloc,
 			binder_delete_free_buffer(alloc, next);
 		}
 	}
+    // 如果上一个binder_buffer是free的,则合并两个binder_buffer
 	if (alloc->buffers.next != &buffer->entry) {
 		struct binder_buffer *prev = binder_buffer_prev(buffer);
 

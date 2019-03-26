@@ -4117,6 +4117,7 @@ retry:
 			binder_inner_proc_unlock(proc);
 			break;
 		}
+        // 从todo listn中,读取binder_work
 		w = binder_dequeue_work_head_ilocked(list);
 		if (binder_worklist_empty_ilocked(&thread->todo))
 			thread->process_todo = false;
