@@ -115,9 +115,9 @@ GTAGS
 # id-utils files
 ID
 
-*.orig
-*~
-\#*#
+     *.orig
+     *~
+     \#*#
 
 #
 # Leavings from module signing
@@ -133,3 +133,6 @@ all.config
 
 # Kdevelop4
 *.kdev4
+
+compile_commands.json
+
